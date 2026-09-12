@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  USER
+  OWNER
+  ADMIN
+}
+
+enum CafeStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum OpenStatus {
+  OPEN
+  CLOSED
+  UNKNOWN
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String
+  name         String?
+  avatarUrl    String?
+  role         Role            @default(USER)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  cafes         Cafe[]
+  reviews       Review[]
+  bookmarks     Bookmark[]
+  claims        OwnershipClaim[]
+  blogPosts     BlogPost[]
+}
+
+model Cafe {
+  id         String      @id @default(cuid())
+  name       String
+  slug       String      @unique
+  tagline    String?
+  description String?
+  address    String?
+  district   String?
+  city       String      @default("Davao City")
+  phone      String?
+  website    String?
+  priceLevel Int         @default(2)
+  latitude   Float?
+  longitude  Float?
+  featured   Boolean     @default(false)
+  status     CafeStatus  @default(PENDING)
+  amenities  String[]    @default([])
+  tags       String[]    @default([])
+  openingHours Json?
+
+  ownerId String?
+  owner   User?  @relation(fields: [ownerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images    CafeImage[]
+  reviews   Review[]
+  bookmarks Bookmark[]
+  claims    OwnershipClaim[]
+
+  @@index([status])
+  @@index([district])
+  @@index([ownerId])
+}
+
+model CafeImage {
+  id      String  @id @default(cuid())
+  url     String
+  alt     String?
+  width   Int?
+  height  Int?
+  isCover Boolean @default(false)
+
+  cafeId String
+  cafe   Cafe   @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+
+  @@index([cafeId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  body      String?
+  createdAt DateTime @default(now())
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  cafeId String
+  cafe   Cafe   @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+
+  @@unique([cafeId, authorId])
+  @@index([cafeId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  cafeId String
+  cafe   Cafe   @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cafeId])
+  @@index([cafeId])
+}
+
+model OwnershipClaim {
+  id        String      @id @default(cuid())
+  status    ClaimStatus @default(PENDING)
+  message   String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  cafeId String
+  cafe   Cafe   @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+
+  @@unique([cafeId, userId])
+  @@index([status])
+}
+
+model BlogPost {
+  id           String     @id @default(cuid())
+  slug         String     @unique
+  title        String
+  excerpt      String?
+  body         String
+  coverImageUrl String?
+  tags         String[]   @default([])
+  status       PostStatus @default(DRAFT)
+  publishedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  @@index([status])
+}

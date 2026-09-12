@@ -1,0 +1,172 @@
+name: Deploy to Ubuntu (Tailscale)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test-and-build:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace=server
+
+      - name: Type-check all workspaces
+        run: npm run typecheck
+
+      - name: Build all workspaces
+        run: npm run build
+
+      - name: Upload server build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-dist
+          path: server/dist/
+          retention-days: 1
+
+      - name: Upload client build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Ubuntu via Tailscale
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download server build
+        uses: actions/download-artifact@v4
+        with:
+          name: server-dist
+          path: server/dist/
+
+      - name: Download client build
+        uses: actions/download-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist/
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:github-action,tag:ci
+
+      - name: Deploy via SSH
+        env:
+          TAILSCALE_IP: ${{ secrets.TAILSCALE_IP }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Syncing build artifacts to Ubuntu ==="
+
+          # Sync server build
+          rsync -az --delete \
+            -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            server/dist/ "${DEPLOY_USER}@${TAILSCALE_IP}:${DEPLOY_PATH}/server/dist/"
+
+          # Sync client build
+          rsync -az --delete \
+            -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            client/dist/ "${DEPLOY_USER}@${TAILSCALE_IP}:${DEPLOY_PATH}/client/dist/"
+
+          echo "=== Running remote deploy commands ==="
+
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "${DEPLOY_USER}@${TAILSCALE_IP}" << 'REMOTE_EOF'
+            set -euo pipefail
+
+            cd "${DEPLOY_PATH}"
+
+            echo "Installing production dependencies..."
+            npm ci --omit=dev --workspace=server
+
+            echo "Running database migrations..."
+            npm run prisma:migrate --workspace=server -- deploy
+
+            echo "Restarting API server..."
+            pm2 restart cafe-finder-api --update-env || pm2 start npm --name cafe-finder-api -- run start --prefix server
+
+            echo "Restarting client (nginx will serve static files)..."
+            # Client is served statically by nginx - no restart needed
+
+            echo "Saving PM2 state..."
+            pm2 save
+
+            echo "=== Deploy complete ==="
+          REMOTE_EOF
+
+      - name: Health check
+        env:
+          TAILSCALE_IP: ${{ secrets.TAILSCALE_IP }}
+        run: |
+          echo "Waiting for API to be healthy..."
+          for i in {1..30}; do
+            if curl -sf "http://${TAILSCALE_IP}:4000/api/health" >/dev/null; then
+              echo "✓ API is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "✗ Health check failed"
+          exit 1
+
+  notify:
+    name: Notify
+    needs: [test-and-build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send deployment status
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Cafe Finder deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Cafe Finder Localz* deployment ${{ job.status == 'success' && '✅ succeeded' || '❌ failed' }} on `${{ github.ref_name }}`"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    { "type": "mrkdwn", "text": "Commit: `${{ github.sha }}` by ${{ github.actor }}" }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
