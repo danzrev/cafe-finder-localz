@@ -10,14 +10,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const baseStyles =
-  'inline-flex items-center justify-center gap-2 font-medium rounded-full ' +
-  'transition-colors focus-ring disabled:opacity-60 disabled:pointer-events-none select-none';
+  'inline-flex items-center justify-center gap-2 font-semibold rounded-full ' +
+  'transition-all duration-200 focus-ring disabled:opacity-60 disabled:pointer-events-none select-none';
 
 const variants: Record<NonNullable<ButtonProps['variant']>, string> = {
-  primary: 'bg-espresso text-paper hover:bg-espresso-soft',
-  secondary: 'bg-leaf text-paper hover:bg-leaf-deep',
-  ghost: 'text-espresso hover:bg-crema',
-  outline: 'border border-espresso/20 text-espresso hover:border-leaf hover:text-leaf-deep',
+  primary: 'bg-espresso text-paper hover:bg-espresso-soft hover:shadow-md active:scale-[0.98]',
+  secondary: 'bg-leaf text-paper hover:bg-leaf-deep hover:shadow-md active:scale-[0.98]',
+  ghost: 'text-espresso hover:bg-crema active:bg-espresso/10',
+  outline: 'border-2 border-espresso/20 text-espresso hover:border-leaf hover:text-leaf-deep hover:bg-leaf/5 active:bg-leaf/10',
 };
 
 const sizes: Record<NonNullable<ButtonProps['size']>, string> = {

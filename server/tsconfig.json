@@ -9,12 +9,7 @@
     "esModuleInterop": true,
     "sourceMap": true,
     "declaration": false,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@cafefinder/shared": ["../shared/src/index.ts"],
-      "@cafefinder/shared/*": ["../shared/src/*"]
-    }
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "prisma"]

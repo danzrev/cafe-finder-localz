@@ -12,7 +12,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "scraper:run": "tsx src/scraper/googlePlacesScraper.ts",
+    "scraper:import": "tsx src/scraper/importScrapedCafes.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -21,6 +23,7 @@
     "@cafefinder/shared": "*",
     "@prisma/client": "^6.1.0",
     "argon2": "^0.41.1",
+    "axios": "^1.20.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -39,6 +42,7 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.10.2",
     "prisma": "^6.1.0",
+    "tsconfig-paths": "^4.2.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
