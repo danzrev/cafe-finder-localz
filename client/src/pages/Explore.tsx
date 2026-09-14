@@ -89,7 +89,7 @@ export default function ExplorePage() {
         >
           <option value="newest">Newest</option>
           <option value="top">Top rated</option>
-          <option value="name">A–Z</option>
+          <option value="name">A-Z</option>
         </Select>
       </motion.div>
 
@@ -101,8 +101,8 @@ export default function ExplorePage() {
           transition={{ duration: 0.3 }}
           className="mb-6 text-sm text-cocoa"
         >
-          Found <span className="font-semibold text-espresso">{items.length}</span>{‘ ‘}
-          {items.length === 1 ? ‘cafe’ : ‘cafes’}
+          Found <span className="font-semibold text-espresso">{items.length}</span>{''}
+          {items.length === 1 ? 'cafe' : 'cafes'}
           {district && ` in ${district}`}
         </motion.div>
       )}
@@ -133,7 +133,7 @@ export default function ExplorePage() {
         <div className="py-20">
           <EmptyState
             title="No cafés match that search"
-            description="Try a different search term or district — or add the spot you’re thinking of."
+            description="Try a different search term or district — or add the spot you're thinking of."
           />
         </div>
       )}
